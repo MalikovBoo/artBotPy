@@ -1,5 +1,6 @@
 import art_db
 import vk_connect
+import phraseDistance
 
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
@@ -151,7 +152,9 @@ if __name__ == '__main__':
             for event in longpoll.listen():
                 if event.type == VkBotEventType.MESSAGE_NEW:
                     if event.from_chat:
-                        if (not playing_painting) and (not playing_artists) and ('Угадать картину' in str(event) or 'Ещё картина' in str(event)):
+                        if (not playing_painting) and (not playing_artists)\
+                                and (phraseDistance.ph_distance('Угадай картину', event.object.message['text']) < 4
+                                     or phraseDistance.ph_distance('Ещё картину', event.object.message['text']) < 4):
                             playing_painting = True
                             paintings_dict = art_db.select_paintings(connection)
                             write_game_msg(event.chat_id, paintings_dict)
@@ -161,7 +164,9 @@ if __name__ == '__main__':
                         elif playing_painting and 'Хватит':
                             playing_painting = write_stop_msg(event.chat_id)
 
-                        elif (not playing_painting) and (not playing_artists) and ('Угадать автора' in str(event) or 'Ещё автор' in str(event)):
+                        elif (not playing_painting) and (not playing_artists) \
+                                and (phraseDistance.ph_distance('Угадай автора', event.object.message['text']) < 4
+                                     or phraseDistance.ph_distance('Ещё автора', event.object.message['text']) < 4):
                             playing_artists = True
                             artists_dict = art_db.select_artists(connection)
                             write_game_artist_msg(event.chat_id, artists_dict)
