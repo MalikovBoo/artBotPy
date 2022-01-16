@@ -1,9 +1,9 @@
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from vk_api import VkUpload
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 import requests
-# from vk_api.longpoll import VkLongPoll, VkEventType
 
 
 # Данные для авторизации
@@ -12,34 +12,124 @@ key = '9a95b34aa82de205be2ef30f902c67d5a4b89f97'
 server = 'https://lp.vk.com/wh209916870'
 ts = '18'
 club_id = 209916870
-# Авторизуемся как сообщество
-vk_session = vk_api.VkApi(token=token)
 
-# Для бесед
-longpoll = VkBotLongPoll(vk_session, club_id)
-session_api = vk_session.get_api()
-
-""" Для ЛС
-Ls_longpoll = VkLongPoll(vk_session)
-Ls_session_api = vk_session.get_api()
-"""
 
 # Кнопочки
 keyboard = VkKeyboard(one_time=True)
-keyboard.add_button('Привет', color=VkKeyboardColor.NEGATIVE)
-keyboard.add_button('Клавиатура', color=VkKeyboardColor.POSITIVE)
-keyboard.add_line()
-keyboard.add_location_button()
+keyboard.add_button('1', color=VkKeyboardColor.POSITIVE)
+keyboard.add_button('2', color=VkKeyboardColor.POSITIVE)
+keyboard.add_button('3', color=VkKeyboardColor.POSITIVE)
+keyboard.add_button('4', color=VkKeyboardColor.POSITIVE)
+# keyboard.add_line()
 
 
-def write_msg_user(user_id, random_id, message):
-    vk_session.method('messages.send', {'user_id': user_id,
-                                        "random_id": random_id, 'message': message})
+def write_game_msg(session_api, chat_id, paintings):
+    a = session_api.photos.getMessagesUploadServer()
+    b = requests.post(a['upload_url'], files={'photo': open(paintings['pict'], 'rb')}).json()
+    c = session_api.photos.saveMessagesPhoto(photo=b['photo'], server=b['server'], hash=b['hash'])[0]
+    d = "photo{}_{}".format(c["owner_id"], c["id"])
 
+    message = 'Что за картину вы видите: \n'\
+              '1. ' + paintings['name1'] + '\n' \
+              '2. ' + paintings['name2'] + '\n' \
+              '3. ' + paintings['name3'] + '\n' \
+              '4. ' + paintings['name4'] + '\n'
 
-def write_msg_chat(chat_id, message):
     session_api.messages.send(
-        # keyboard=keyboard.get_keyboard(),
+        keyboard=keyboard.get_keyboard(),
+        key=key,
+        server=server,
+        ts=ts,
+        attachment=d,
+        random_id=get_random_id(),
+        message=message,
+        chat_id=chat_id
+    )
+
+
+def write_game_artist_msg(session_api, chat_id, paintings):
+
+    a = session_api.photos.getMessagesUploadServer()
+    b = requests.post(a['upload_url'], files={'photo': open(paintings['pict'], 'rb')}).json()
+    c = session_api.photos.saveMessagesPhoto(photo=b['photo'], server=b['server'], hash=b['hash'])[0]
+    attachment = "photo{}_{}".format(c["owner_id"], c["id"])
+
+    message = 'Кто автор картины: \n'\
+              '1. ' + paintings['name1'] + '\n' \
+              '2. ' + paintings['name2'] + '\n' \
+              '3. ' + paintings['name3'] + '\n' \
+              '4. ' + paintings['name4'] + '\n'
+
+    session_api.messages.send(
+        keyboard=keyboard.get_keyboard(),
+        key=key,
+        server=server,
+        ts=ts,
+        attachment=attachment,
+        random_id=get_random_id(),
+        message=message,
+        chat_id=chat_id
+    )
+
+
+def write_answ_msg(session_api, chat_id, paintings, user_answer):
+    if int(user_answer) == paintings['corr_answ']:
+        message = 'Это верный ответ!'
+        session_api.messages.send(
+            key=key,
+            server=server,
+            ts=ts,
+            random_id=get_random_id(),
+            message=message,
+            chat_id=chat_id
+        )
+        return False
+    else:
+        message = 'Нет, ещё попытка:'
+        session_api.messages.send(
+            keyboard=keyboard.get_keyboard(),
+            key=key,
+            server=server,
+            ts=ts,
+            random_id=get_random_id(),
+            message=message,
+            chat_id=chat_id
+        )
+        return True
+
+
+def write_answ_artist_msg(session_api, chat_id, paintings, user_answer):
+    if int(user_answer) == paintings['corr_answ']:
+        message = 'Это верный ответ! \nКартина: '+paintings['painting_name'] + \
+                  '\nНаписана в '+paintings['pict_date'] + \
+                  '\nСтрана художника: '+paintings['county'] + \
+                  '\nСтиль художника: '+paintings['style']
+        session_api.messages.send(
+            key=key,
+            server=server,
+            ts=ts,
+            random_id=get_random_id(),
+            message=message,
+            chat_id=chat_id
+        )
+        return False
+    else:
+        message = 'Нет, ещё попытка:'
+        session_api.messages.send(
+            keyboard=keyboard.get_keyboard(),
+            key=key,
+            server=server,
+            ts=ts,
+            random_id=get_random_id(),
+            message=message,
+            chat_id=chat_id
+        )
+        return True
+
+
+def write_stop_msg(session_api, chat_id):
+    message = 'Останавливаем игру'
+    session_api.messages.send(
         key=key,
         server=server,
         ts=ts,
@@ -47,15 +137,4 @@ def write_msg_chat(chat_id, message):
         message=message,
         chat_id=chat_id
     )
-
-
-def vkbot_start(message: dict):
-    while True:
-        try:
-            for event in longpoll.listen():
-                if event.type == VkBotEventType.MESSAGE_NEW:
-                    if 'Ку' in str(event):
-                        if event.from_chat:
-                            write_msg_chat(event.chat_id, message)
-        except requests.exceptions.ReadTimeout as timeout:
-            continue
+    return False
